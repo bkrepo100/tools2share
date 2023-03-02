@@ -1,0 +1,36 @@
+import requests
+from bs4 import BeautifulSoup
+import csv
+
+# #######################################################
+# write data from the Azure status API to a CSV file
+# #######################################################
+
+url = 'https://status.azure.com/en-us/statushistoryapi/'
+params = {'serviceSlug':'all','regionSlug':'all','startDate':'all','page':'1','shdrefreshflag':'false'}
+fieldnames = ["date", "title", "trackingid"]
+
+
+incidentlist = []
+nextpage = 1 
+while nextpage > 0:
+    params['page'] = nextpage
+    response = requests.get(url,params)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    incidents = soup.find_all('div', class_='col-sm-11 incident-history-item')   
+    for idx, incident in enumerate(incidents):
+        incidentitem = {}
+        incidentitem['date'] = incident.find('span').text
+        incidentitem['title'] = incident.find('div',class_='col-md-8 incident-history-title').text.strip()
+        incidentitem['trackingid'] = incident.find('div',class_='col-md-3 incident-history-tracking-id').text.strip().replace('Tracking ID: ','')
+        incidentlist.append(incidentitem)
+    if len(incidents) > 0:
+        nextpage += 1
+    else:
+        nextpage = 0
+
+with open("incidents.csv", mode="w", newline="") as csv_file:
+    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in incidentlist:
+        writer.writerow(row)
